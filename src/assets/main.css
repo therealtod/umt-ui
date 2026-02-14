@@ -1,0 +1,78 @@
+@import './base.css';
+
+:root {
+  --bs-body-bg: #060b16;
+  --bs-body-color: #dbe6f5;
+  --bs-border-color: #243246;
+  --bs-secondary-color: #9fb2cc;
+  --bs-tertiary-bg: #0f172a;
+  --bs-primary: #38bdf8;
+  --bs-primary-rgb: 56, 189, 248;
+  --bs-link-color: #7dd3fc;
+  --bs-link-hover-color: #a5f3fc;
+  --app-panel-bg: #0b1220;
+  --app-panel-bg-soft: #121b2e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background:
+    radial-gradient(1000px 500px at -5% -10%, rgba(14, 165, 233, 0.16), transparent 70%),
+    radial-gradient(900px 420px at 110% -20%, rgba(99, 102, 241, 0.12), transparent 72%),
+    var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
+#app {
+  margin: 0 auto;
+  padding: 0;
+}
+
+a {
+  text-decoration: none;
+}
+
+main h1,
+main h2,
+main h3 {
+  color: #e5eefb;
+}
+
+section,
+article {
+  background: linear-gradient(180deg, rgba(18, 27, 46, 0.9), rgba(11, 18, 32, 0.9)) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+}
+
+table {
+  color: var(--bs-body-color);
+}
+
+input,
+select,
+textarea {
+  background-color: #0b1424 !important;
+  color: #dbe6f5 !important;
+  border-color: #30435f !important;
+}
+
+button {
+  border-radius: 10px !important;
+}
+
+th,
+td {
+  border-color: #2a3a51 !important;
+}
+
+@media (max-width: 768px) {
+  #app {
+    padding: 0;
+  }
+}
