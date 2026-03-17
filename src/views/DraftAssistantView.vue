@@ -7,6 +7,7 @@ import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStat
 import { buildMatchupWinRateMatrix, type MatchupWinRateMatrix } from '@/services/heroStatsUtils'
 import { matchupThresholds } from '@/services/matchupThresholds'
 import {
+  buildCounterCandidates,
   buildPoolStrengthRows,
   buildWeakLinkRows,
   findBestCounterCandidates,
@@ -49,6 +50,12 @@ type BanRecommendationRow = {
   heroName: string
   averageWinRate: number
   winningMatchups: number
+}
+
+type ForecastRecommendationRow = {
+  heroName: string
+  winningMatchups: number
+  averageWinRate: number
 }
 
 type MatchVictoryCondition = 'most-games' | 'all-heroes'
@@ -773,6 +780,81 @@ const blanketPickRecommendationsB = computed(() =>
   ),
 )
 
+const forecastOpponentNextPicks = (
+  candidateHeroNames: string[],
+  targetLockedRosterHeroNames: string[],
+  pickCount: number,
+): string[] => {
+  if (pickCount <= 0 || targetLockedRosterHeroNames.length === 0 || candidateHeroNames.length === 0) {
+    return []
+  }
+
+  return buildCounterCandidates(candidateHeroNames, targetLockedRosterHeroNames, matchupMatrix.value)
+    .slice(0, pickCount)
+    .map((entry) => entry.heroName)
+}
+
+const blanketCanShowForecastRecommendations = computed(
+  () =>
+    !blanketDraftComplete.value &&
+    blanketLockedANames.value.length > 0 &&
+    blanketLockedBNames.value.length > 0,
+)
+
+const blanketPredictedPicksForA = computed(() =>
+  forecastOpponentNextPicks(
+    blanketRemainingHeroes.value.map((hero) => hero.name),
+    blanketLockedANames.value,
+    blanketNeededB.value,
+  ),
+)
+
+const blanketPredictedPicksForB = computed(() =>
+  forecastOpponentNextPicks(
+    blanketRemainingHeroes.value.map((hero) => hero.name),
+    blanketLockedBNames.value,
+    blanketNeededA.value,
+  ),
+)
+
+const blanketForecastCounterRecommendationsA = computed<ForecastRecommendationRow[]>(() => {
+  if (!blanketCanShowForecastRecommendations.value) {
+    return []
+  }
+
+  const forecastRoster = [...new Set([...blanketLockedBNames.value, ...blanketPredictedPicksForA.value])]
+  const counterSearch = findBestCounterCandidates(
+    blanketSelectableForA.value.map((hero) => hero.name),
+    forecastRoster,
+    matchupMatrix.value,
+  )
+  return (counterSearch?.candidates ?? []).slice(0, 8)
+})
+
+const blanketForecastCounterRecommendationsB = computed<ForecastRecommendationRow[]>(() => {
+  if (!blanketCanShowForecastRecommendations.value) {
+    return []
+  }
+
+  const forecastRoster = [...new Set([...blanketLockedANames.value, ...blanketPredictedPicksForB.value])]
+  const counterSearch = findBestCounterCandidates(
+    blanketSelectableForB.value.map((hero) => hero.name),
+    forecastRoster,
+    matchupMatrix.value,
+  )
+  return (counterSearch?.candidates ?? []).slice(0, 8)
+})
+
+const blanketMirrorDenyRecommendationsForA = computed(() => {
+  const selectable = new Set(blanketSelectableForA.value.map((hero) => hero.name))
+  return blanketPredictedPicksForA.value.filter((heroName) => selectable.has(heroName))
+})
+
+const blanketMirrorDenyRecommendationsForB = computed(() => {
+  const selectable = new Set(blanketSelectableForB.value.map((hero) => hero.name))
+  return blanketPredictedPicksForB.value.filter((heroName) => selectable.has(heroName))
+})
+
 const blanketRosterAAfterOpponentBans = computed(() =>
   blanketLockedA.value.filter((hero) => hero.id !== blanketRevealedOpponentBanB.value),
 )
@@ -1423,6 +1505,29 @@ watch(
                 </span>
               </li>
             </ul>
+            <template v-if="blanketCanShowForecastRecommendations">
+              <h3>Forecast-Based Suggestions</h3>
+              <p>
+                Predicted follower picks:
+                <strong>{{ blanketPredictedPicksForA.length > 0 ? blanketPredictedPicksForA.join(', ') : 'none' }}</strong>
+              </p>
+              <p>Counter picks vs locked + predicted follower roster:</p>
+              <ul>
+                <li v-if="blanketForecastCounterRecommendationsA.length === 0">No forecast counter suggestions found.</li>
+                <li v-for="entry in blanketForecastCounterRecommendationsA" :key="`forecast-a-${entry.heroName}`">
+                  <strong>{{ entry.heroName }}</strong>: {{ entry.winningMatchups }} winning matchups,
+                  {{ entry.averageWinRate.toFixed(1) }}% avg win rate
+                </li>
+              </ul>
+              <p>
+                Mirror-deny options:
+                <strong>{{
+                  blanketMirrorDenyRecommendationsForA.length > 0
+                    ? blanketMirrorDenyRecommendationsForA.join(', ')
+                    : 'none'
+                }}</strong>
+              </p>
+            </template>
           </article>
 
           <article>
@@ -1443,6 +1548,29 @@ watch(
                 </span>
               </li>
             </ul>
+            <template v-if="blanketCanShowForecastRecommendations">
+              <h3>Forecast-Based Suggestions</h3>
+              <p>
+                Predicted leader picks:
+                <strong>{{ blanketPredictedPicksForB.length > 0 ? blanketPredictedPicksForB.join(', ') : 'none' }}</strong>
+              </p>
+              <p>Counter picks vs locked + predicted leader roster:</p>
+              <ul>
+                <li v-if="blanketForecastCounterRecommendationsB.length === 0">No forecast counter suggestions found.</li>
+                <li v-for="entry in blanketForecastCounterRecommendationsB" :key="`forecast-b-${entry.heroName}`">
+                  <strong>{{ entry.heroName }}</strong>: {{ entry.winningMatchups }} winning matchups,
+                  {{ entry.averageWinRate.toFixed(1) }}% avg win rate
+                </li>
+              </ul>
+              <p>
+                Mirror-deny options:
+                <strong>{{
+                  blanketMirrorDenyRecommendationsForB.length > 0
+                    ? blanketMirrorDenyRecommendationsForB.join(', ')
+                    : 'none'
+                }}</strong>
+              </p>
+            </template>
           </article>
         </section>
 

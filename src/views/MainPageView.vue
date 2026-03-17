@@ -49,15 +49,29 @@ import { RouterLink } from 'vue-router'
 }
 
 .card {
-  border: 1px solid #d7d7d7;
-  border-radius: 8px;
+  border: 1px solid #38bdf8;
+  border-radius: 12px;
   padding: 1rem;
-  background: #fff;
-  color: #1f2937;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(56, 189, 248, 0.35), rgba(14, 116, 144, 0.18) 45%, rgba(15, 23, 42, 0.92) 100%),
+    #0f172a;
+  color: #e5f3ff;
+  box-shadow: 0 10px 26px rgba(2, 132, 199, 0.28);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: #7dd3fc;
+  box-shadow: 0 14px 32px rgba(56, 189, 248, 0.38);
 }
 
 .card h2 {
   margin-bottom: 0.4rem;
+  color: #f8fdff;
 }
 
 @media (max-width: 768px) {
