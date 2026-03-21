@@ -1,17 +1,27 @@
 @import './base.css';
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bs-body-bg: #060b16;
-  --bs-body-color: #dbe6f5;
-  --bs-border-color: #243246;
-  --bs-secondary-color: #9fb2cc;
-  --bs-tertiary-bg: #0f172a;
-  --bs-primary: #38bdf8;
-  --bs-primary-rgb: 56, 189, 248;
-  --bs-link-color: #7dd3fc;
-  --bs-link-hover-color: #a5f3fc;
-  --app-panel-bg: #0b1220;
-  --app-panel-bg-soft: #121b2e;
+  --background: #0a0e14;
+  --surface-lowest: #000000;
+  --surface-low: #0f141a;
+  --surface: #151a21;
+  --surface-high: #1b2028;
+  --surface-highest: #20262f;
+  --primary: #81ecff;
+  --primary-dim: #00d4ec;
+  --secondary: #2ff801;
+  --tertiary: #ff7166;
+  --on-surface: #f1f3fc;
+  --on-surface-variant: #a8abb3;
+  --outline-variant: #44484f;
+  --bs-body-bg: var(--background);
+  --bs-body-color: var(--on-surface);
+  --bs-border-color: var(--outline-variant);
+  --bs-primary: var(--primary);
+  --bs-primary-rgb: 129, 236, 255;
+  --bs-link-color: var(--primary);
+  --bs-link-hover-color: #c5f6ff;
 }
 
 * {
@@ -20,12 +30,20 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background:
-    radial-gradient(1000px 500px at -5% -10%, rgba(14, 165, 233, 0.16), transparent 70%),
-    radial-gradient(900px 420px at 110% -20%, rgba(99, 102, 241, 0.12), transparent 72%),
-    var(--bs-body-bg);
-  color: var(--bs-body-color);
+    linear-gradient(to right, rgba(32, 38, 47, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(32, 38, 47, 0.09) 1px, transparent 1px),
+    radial-gradient(70vw 45vh at 0% 0%, rgba(0, 227, 253, 0.08), transparent 70%),
+    radial-gradient(65vw 45vh at 100% 0%, rgba(47, 248, 1, 0.07), transparent 70%),
+    var(--background);
+  background-size:
+    34px 34px,
+    34px 34px,
+    auto,
+    auto,
+    auto;
+  color: var(--on-surface);
 }
 
 #app {
@@ -40,35 +58,79 @@ a {
 main h1,
 main h2,
 main h3 {
-  color: #e5eefb;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  color: var(--on-surface);
+  letter-spacing: 0.01em;
 }
 
 section,
 article {
-  background: linear-gradient(180deg, rgba(18, 27, 46, 0.9), rgba(11, 18, 32, 0.9)) !important;
-  border-color: rgba(148, 163, 184, 0.24) !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, rgba(32, 38, 47, 0.7), rgba(21, 26, 33, 0.84)) !important;
+  border-color: rgba(68, 72, 79, 0.35) !important;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.24);
 }
 
 table {
-  color: var(--bs-body-color);
+  color: var(--on-surface);
 }
 
 input,
 select,
 textarea {
-  background-color: #0b1424 !important;
-  color: #dbe6f5 !important;
-  border-color: #30435f !important;
+  font-family: 'Inter', 'Manrope', sans-serif;
+  background-color: var(--surface-lowest) !important;
+  color: var(--on-surface) !important;
+  border: 1px solid rgba(68, 72, 79, 0.45) !important;
+  border-radius: 0.25rem !important;
 }
 
 button {
-  border-radius: 10px !important;
+  font-family: 'Inter', 'Manrope', sans-serif;
+  border-radius: 0.25rem !important;
 }
 
 th,
 td {
-  border-color: #2a3a51 !important;
+  border-color: rgba(68, 72, 79, 0.4) !important;
+}
+
+.btn-primary,
+button[type='submit'],
+button[type='button'] {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dim));
+  border: 0;
+  color: #003840;
+  font-weight: 700;
+}
+
+.btn-outline-light {
+  border-color: rgba(68, 72, 79, 0.55) !important;
+  color: var(--on-surface) !important;
+  background: rgba(15, 20, 26, 0.82) !important;
+}
+
+.btn-outline-light:hover {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(129, 236, 255, 0.5) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(129, 236, 255, 0.45);
+  border-radius: 999px;
 }
 
 @media (max-width: 768px) {

@@ -8,7 +8,7 @@ import { RouterLink, RouterView } from 'vue-router'
       <div class="d-flex flex-column gap-3">
         <div>
           <h1 class="h3 mb-1 fw-semibold">Unmatched UI</h1>
-          <p class="text-secondary mb-0">Draft, pool, and roster analysis</p>
+          <p class="subline mb-0">Draft, pool, and roster analysis</p>
         </div>
         <nav class="d-flex flex-wrap gap-2">
           <RouterLink to="/" class="btn btn-outline-light btn-sm" active-class="btn-primary text-white border-0">
@@ -56,12 +56,19 @@ import { RouterLink, RouterView } from 'vue-router'
 }
 
 .app-header {
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  border: 1px solid rgba(68, 72, 79, 0.35);
   background:
-    radial-gradient(1200px 220px at 10% -40%, rgba(56, 189, 248, 0.2), transparent 70%),
-    radial-gradient(900px 180px at 100% 0%, rgba(99, 102, 241, 0.22), transparent 72%),
-    rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(8px);
+    radial-gradient(900px 220px at 0% 0%, rgba(0, 227, 253, 0.18), transparent 70%),
+    radial-gradient(900px 180px at 100% 0%, rgba(47, 248, 1, 0.14), transparent 72%),
+    rgba(21, 26, 33, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.subline {
+  color: #a8abb3;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  text-transform: uppercase;
 }
 </style>
