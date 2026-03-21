@@ -153,9 +153,46 @@ const getSortIndicator = (key: PoolSortKey) => {
 const totalHeroes = computed(() => heroRows.value.length)
 
 const totalGamesPlayed = computed(() => heroRows.value.reduce((sum, hero) => sum + hero.gamesPlayed, 0))
+const rankingCoverageFilterEnabled = ref(true)
+
+const rankingCoverageRequirement = computed(() => {
+  const opponentsCount = Math.max(0, displayedHeroNames.value.length - 1)
+  return Math.ceil(opponentsCount / 2)
+})
+
+const rankingEligibleHeroNames = computed(() => {
+  if (!rankingCoverageFilterEnabled.value) {
+    return displayedHeroNames.value
+  }
+
+  if (displayedHeroNames.value.length <= 1) {
+    return displayedHeroNames.value
+  }
+
+  return displayedHeroNames.value.filter((heroName) => {
+    let availableMatchups = 0
+
+    for (const opponent of displayedHeroNames.value) {
+      if (opponent === heroName) {
+        continue
+      }
+
+      const winRate = matchupMatrix.value[heroName]?.[opponent]
+      if (winRate != null) {
+        availableMatchups += 1
+      }
+    }
+
+    return availableMatchups >= rankingCoverageRequirement.value
+  })
+})
+
+const filteredOutByCoverageCount = computed(
+  () => Math.max(0, displayedHeroNames.value.length - rankingEligibleHeroNames.value.length),
+)
 
 const rankingRows = computed(() => {
-  return displayedHeroNames.value.map((heroName) => {
+  return rankingEligibleHeroNames.value.map((heroName) => {
     let losingMatchups = 0
     let winningMatchups = 0
     let hardLosingMatchups = 0
@@ -419,6 +456,23 @@ const handleDeletePool = (poolId: string) => {
       </section>
 
       <section class="rankings" v-if="displayedHeroNames.length > 0">
+        <div class="ranking-filter-bar">
+          <button type="button" @click="rankingCoverageFilterEnabled = !rankingCoverageFilterEnabled">
+            {{ rankingCoverageFilterEnabled ? 'Disable' : 'Enable' }} Coverage Filter
+          </button>
+          <p>
+            Coverage filter:
+            <strong>{{ rankingCoverageFilterEnabled ? 'active' : 'inactive' }}</strong
+            >.
+            <span v-if="rankingCoverageFilterEnabled">
+              Requires matchup data against at least {{ rankingCoverageRequirement }} of
+              {{ Math.max(0, displayedHeroNames.length - 1) }} opponents.
+              <span v-if="filteredOutByCoverageCount > 0">
+                Excluded heroes: {{ filteredOutByCoverageCount }}.
+              </span>
+            </span>
+          </p>
+        </div>
         <article>
           <h2>Least Losing Matchups Ranking</h2>
           <p>
@@ -515,6 +569,19 @@ section {
 .rankings,
 .table-wrap {
   max-width: 100%;
+}
+
+.rankings {
+  max-width: 1080px;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+}
+
+.ranking-filter-bar {
+  grid-column: 1 / -1;
+  border: 1px solid #2b3d57;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #0f172a;
 }
 
 .section-wide {
