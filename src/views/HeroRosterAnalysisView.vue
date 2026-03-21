@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
+import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/officialReleasedHeroes'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { buildMatchupWinRateMatrix, type MatchupWinRateMatrix } from '@/services/heroStatsUtils'
@@ -42,7 +43,7 @@ const sourceHeroes = computed(() => {
   }
 
   if (sourceMode.value === 'official') {
-    return allHeroes.value.filter((hero) => !hero.name.toLowerCase().includes('alt'))
+    return allHeroes.value.filter((hero) => OFFICIALLY_RELEASED_HERO_NAME_SET.has(hero.name))
   }
 
   if (!selectedPool.value) {

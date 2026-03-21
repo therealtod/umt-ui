@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
+import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/officialReleasedHeroes'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { matchupThresholds } from '@/services/matchupThresholds'
@@ -45,7 +46,7 @@ const displayedHeroes = computed(() => {
   }
 
   if (analyticsSource.value === 'official') {
-    return allHeroes.value.filter((hero) => !hero.name.toLowerCase().includes('alt'))
+    return allHeroes.value.filter((hero) => OFFICIALLY_RELEASED_HERO_NAME_SET.has(hero.name))
   }
 
   if (!selectedAnalyticsPool.value) {
@@ -157,6 +158,8 @@ const rankingRows = computed(() => {
   return displayedHeroNames.value.map((heroName) => {
     let losingMatchups = 0
     let winningMatchups = 0
+    let hardLosingMatchups = 0
+    let hardWinningMatchups = 0
     const gamesPlayed = heroStatsDictionary.value[heroName]?.gamesPlayed ?? 0
 
     for (const opponent of displayedHeroNames.value) {
@@ -176,9 +179,17 @@ const rankingRows = computed(() => {
       if (winRate > matchupThresholds.winningWinRateLowerBound) {
         winningMatchups += 1
       }
+
+      if (winRate <= matchupThresholds.hardLosingWinRateUpperBound) {
+        hardLosingMatchups += 1
+      }
+
+      if (winRate >= matchupThresholds.hardWinningWinRateLowerBound) {
+        hardWinningMatchups += 1
+      }
     }
 
-    return { heroName, losingMatchups, winningMatchups, gamesPlayed }
+    return { heroName, losingMatchups, winningMatchups, hardLosingMatchups, hardWinningMatchups, gamesPlayed }
   })
 })
 
@@ -199,6 +210,14 @@ const formatWinRate = (value: number | null | undefined) => (value == null ? '--
 const getMatchupCellClass = (value: number | null | undefined) => {
   if (value == null) {
     return 'matchup-cell-empty'
+  }
+
+  if (value <= matchupThresholds.hardLosingWinRateUpperBound) {
+    return 'matchup-cell-hard-bad'
+  }
+
+  if (value >= matchupThresholds.hardWinningWinRateLowerBound) {
+    return 'matchup-cell-hard-good'
   }
 
   if (value < matchupThresholds.losingWinRateUpperBound) {
@@ -402,20 +421,28 @@ const handleDeletePool = (poolId: string) => {
       <section class="rankings" v-if="displayedHeroNames.length > 0">
         <article>
           <h2>Least Losing Matchups Ranking</h2>
-          <p>Losing matchup = win rate below {{ matchupThresholds.losingWinRateUpperBound }}%.</p>
+          <p>
+            Losing matchup = win rate below {{ matchupThresholds.losingWinRateUpperBound }}%. Hard counter loss =
+            {{ matchupThresholds.hardLosingWinRateUpperBound }}% or lower.
+          </p>
           <ol>
             <li v-for="entry in leastLosingMatchups" :key="`least-${entry.heroName}`">
-              {{ entry.heroName }} ({{ entry.losingMatchups }} losing matchups, {{ entry.gamesPlayed }} games played)
+              {{ entry.heroName }} ({{ entry.losingMatchups }} losing, {{ entry.hardLosingMatchups }} hard-losing,
+              {{ entry.gamesPlayed }} games played)
             </li>
           </ol>
         </article>
 
         <article>
           <h2>Most Winning Matchups Ranking</h2>
-          <p>Winning matchup = win rate above {{ matchupThresholds.winningWinRateLowerBound }}%.</p>
+          <p>
+            Winning matchup = win rate above {{ matchupThresholds.winningWinRateLowerBound }}%. Hard counter win =
+            {{ matchupThresholds.hardWinningWinRateLowerBound }}% or higher.
+          </p>
           <ol>
             <li v-for="entry in mostWinningMatchups" :key="`most-${entry.heroName}`">
-              {{ entry.heroName }} ({{ entry.winningMatchups }} winning matchups, {{ entry.gamesPlayed }} games played)
+              {{ entry.heroName }} ({{ entry.winningMatchups }} winning, {{ entry.hardWinningMatchups }} hard-winning,
+              {{ entry.gamesPlayed }} games played)
             </li>
           </ol>
         </article>
@@ -551,6 +578,12 @@ tbody th {
   color: #d8ffee;
 }
 
+.matrix-table td.matchup-cell-hard-good {
+  background: #14532d;
+  color: #dcfce7;
+  font-weight: 700;
+}
+
 .matrix-table td.matchup-cell-neutral {
   background: #4a3b1f;
   color: #fff0c9;
@@ -559,6 +592,12 @@ tbody th {
 .matrix-table td.matchup-cell-bad {
   background: #53252b;
   color: #ffdfe1;
+}
+
+.matrix-table td.matchup-cell-hard-bad {
+  background: #7f1d1d;
+  color: #fee2e2;
+  font-weight: 700;
 }
 
 .matrix-table td.matchup-cell-empty {

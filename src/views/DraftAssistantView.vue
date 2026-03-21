@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
+import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/officialReleasedHeroes'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { buildMatchupWinRateMatrix, type MatchupWinRateMatrix } from '@/services/heroStatsUtils'
@@ -94,7 +95,7 @@ const sourceHeroes = computed(() => {
   }
 
   if (sourceMode.value === 'official') {
-    return allHeroes.value.filter((hero) => !hero.name.toLowerCase().includes('alt'))
+    return allHeroes.value.filter((hero) => OFFICIALLY_RELEASED_HERO_NAME_SET.has(hero.name))
   }
 
   if (!selectedPool.value) {
@@ -236,6 +237,14 @@ const buildPickRecommendationBundle = (
 const getMatchupCellClass = (value: number | null) => {
   if (value == null) {
     return 'matchup-cell-empty'
+  }
+
+  if (value <= matchupThresholds.hardLosingWinRateUpperBound) {
+    return 'matchup-cell-hard-bad'
+  }
+
+  if (value >= matchupThresholds.hardWinningWinRateLowerBound) {
+    return 'matchup-cell-hard-good'
   }
 
   if (value < matchupThresholds.losingWinRateUpperBound) {
@@ -1856,6 +1865,12 @@ section,
   color: #d8ffee;
 }
 
+.matrix-table td.matchup-cell-hard-good {
+  background: #14532d;
+  color: #dcfce7;
+  font-weight: 700;
+}
+
 .matrix-table td.matchup-cell-neutral {
   background: #4a3b1f;
   color: #fff0c9;
@@ -1864,6 +1879,12 @@ section,
 .matrix-table td.matchup-cell-bad {
   background: #53252b;
   color: #ffdfe1;
+}
+
+.matrix-table td.matchup-cell-hard-bad {
+  background: #7f1d1d;
+  color: #fee2e2;
+  font-weight: 700;
 }
 
 .matrix-table td.matchup-cell-empty {
