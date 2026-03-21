@@ -106,6 +106,56 @@ const sourceHeroes = computed(() => {
   return allHeroes.value.filter((hero) => allowedNames.has(hero.name))
 })
 
+const suggestionCoverageFilterEnabled = ref(true)
+
+const suggestionCoverageRequirement = computed(() => {
+  const opponentsCount = Math.max(0, sourceHeroes.value.length - 1)
+  return Math.ceil(opponentsCount / 2)
+})
+
+const suggestionEligibleHeroNameSet = computed(() => {
+  const sourceHeroNames = sourceHeroes.value.map((hero) => hero.name)
+  if (!suggestionCoverageFilterEnabled.value || sourceHeroNames.length <= 1) {
+    return new Set(sourceHeroNames)
+  }
+
+  const eligible = new Set<string>()
+  for (const heroName of sourceHeroNames) {
+    let availableMatchups = 0
+    for (const opponent of sourceHeroNames) {
+      if (opponent === heroName) {
+        continue
+      }
+      const winRate = matchupMatrix.value[heroName]?.[opponent]
+      if (winRate != null) {
+        availableMatchups += 1
+      }
+    }
+
+    if (availableMatchups >= suggestionCoverageRequirement.value) {
+      eligible.add(heroName)
+    }
+  }
+
+  return eligible
+})
+
+const suggestionFilteredOutCount = computed(() => {
+  if (!suggestionCoverageFilterEnabled.value) {
+    return 0
+  }
+
+  return Math.max(0, sourceHeroes.value.length - suggestionEligibleHeroNameSet.value.size)
+})
+
+const filterSuggestionCandidates = (candidateHeroNames: string[]): string[] => {
+  if (!suggestionCoverageFilterEnabled.value) {
+    return candidateHeroNames
+  }
+
+  return candidateHeroNames.filter((heroName) => suggestionEligibleHeroNameSet.value.has(heroName))
+}
+
 watch(
   pools,
   (nextPools) => {
@@ -382,7 +432,7 @@ const banquestPickRecommendationBundle = computed(() => {
     return { explanation: null as string | null, rows: [] as RecommendationRow[] }
   }
 
-  const candidateHeroNames = banquestPickSelectableHeroes.value.map((hero) => hero.name)
+  const candidateHeroNames = filterSuggestionCandidates(banquestPickSelectableHeroes.value.map((hero) => hero.name))
   const opponentRosterNames =
     banquestCurrentTurn.value.player === 'A' ? banquestRosterBNames.value : banquestRosterANames.value
 
@@ -780,14 +830,14 @@ const resetBlanketDraft = () => {
 
 const blanketPickRecommendationsA = computed(() =>
   buildPickRecommendationBundle(
-    blanketSelectableForA.value.map((hero) => hero.name),
+    filterSuggestionCandidates(blanketSelectableForA.value.map((hero) => hero.name)),
     blanketLockedBNames.value,
     matchVictoryCondition.value,
   ),
 )
 const blanketPickRecommendationsB = computed(() =>
   buildPickRecommendationBundle(
-    blanketSelectableForB.value.map((hero) => hero.name),
+    filterSuggestionCandidates(blanketSelectableForB.value.map((hero) => hero.name)),
     blanketLockedANames.value,
     matchVictoryCondition.value,
   ),
@@ -798,11 +848,13 @@ const forecastOpponentNextPicks = (
   targetLockedRosterHeroNames: string[],
   pickCount: number,
 ): string[] => {
-  if (pickCount <= 0 || targetLockedRosterHeroNames.length === 0 || candidateHeroNames.length === 0) {
+  const filteredCandidates = filterSuggestionCandidates(candidateHeroNames)
+
+  if (pickCount <= 0 || targetLockedRosterHeroNames.length === 0 || filteredCandidates.length === 0) {
     return []
   }
 
-  return buildCounterCandidates(candidateHeroNames, targetLockedRosterHeroNames, matchupMatrix.value)
+  return buildCounterCandidates(filteredCandidates, targetLockedRosterHeroNames, matchupMatrix.value)
     .slice(0, pickCount)
     .map((entry) => entry.heroName)
 }
@@ -837,7 +889,7 @@ const blanketForecastCounterRecommendationsA = computed<ForecastRecommendationRo
 
   const forecastRoster = [...new Set([...blanketLockedBNames.value, ...blanketPredictedPicksForA.value])]
   const counterSearch = findBestCounterCandidates(
-    blanketSelectableForA.value.map((hero) => hero.name),
+    filterSuggestionCandidates(blanketSelectableForA.value.map((hero) => hero.name)),
     forecastRoster,
     matchupMatrix.value,
   )
@@ -851,7 +903,7 @@ const blanketForecastCounterRecommendationsB = computed<ForecastRecommendationRo
 
   const forecastRoster = [...new Set([...blanketLockedANames.value, ...blanketPredictedPicksForB.value])]
   const counterSearch = findBestCounterCandidates(
-    blanketSelectableForB.value.map((hero) => hero.name),
+    filterSuggestionCandidates(blanketSelectableForB.value.map((hero) => hero.name)),
     forecastRoster,
     matchupMatrix.value,
   )
@@ -1142,6 +1194,23 @@ watch(
             Both players can pick any hero for game 1. After a win, the winning hero is locked out for that player,
             while the losing hero can be used again. To win the match, a player must win with every hero in their roster.
           </template>
+        </div>
+        <div class="helper-text">
+          Suggestion coverage filter:
+          <strong>{{ suggestionCoverageFilterEnabled ? 'active' : 'inactive' }}</strong
+          >.
+          <span v-if="suggestionCoverageFilterEnabled">
+            Requires matchup data against at least {{ suggestionCoverageRequirement }} of
+            {{ Math.max(0, sourceHeroes.length - 1) }} opponents.
+            <span v-if="suggestionFilteredOutCount > 0">
+              Excluded heroes from suggestions: {{ suggestionFilteredOutCount }}.
+            </span>
+          </span>
+        </div>
+        <div class="actions">
+          <button type="button" @click="suggestionCoverageFilterEnabled = !suggestionCoverageFilterEnabled">
+            {{ suggestionCoverageFilterEnabled ? 'Disable' : 'Enable' }} Suggestion Coverage Filter
+          </button>
         </div>
       </section>
 
