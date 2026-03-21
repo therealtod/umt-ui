@@ -23,7 +23,7 @@ const allHeroes = ref<HeroEntry[]>([])
 const rosterOneIds = ref<number[]>([])
 const rosterTwoIds = ref<number[]>([])
 
-const sourceMode = ref<'all' | 'custom'>('all')
+const sourceMode = ref<'all' | 'official' | 'custom'>('official')
 const selectedPoolId = ref('')
 
 const heroStatsDictionary = ref<HeroStatsDictionary>({})
@@ -48,6 +48,10 @@ const selectedPool = computed(() => pools.value.find((pool) => pool.id === selec
 const sourceHeroes = computed(() => {
   if (sourceMode.value === 'all') {
     return allHeroes.value
+  }
+
+  if (sourceMode.value === 'official') {
+    return allHeroes.value.filter((hero) => !hero.name.toLowerCase().includes('alt'))
   }
 
   if (!selectedPool.value) {
@@ -274,6 +278,7 @@ const getMatchupCellClass = (value: number | null) => {
             <span>Source</span>
             <select v-model="sourceMode">
               <option value="all">All Heroes</option>
+              <option value="official">Officially Released Characters</option>
               <option value="custom">Custom Pool</option>
             </select>
           </label>

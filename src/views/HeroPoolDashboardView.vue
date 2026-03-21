@@ -24,7 +24,7 @@ type SortDirection = 'asc' | 'desc'
 
 const loading = ref(true)
 const allHeroes = ref<HeroEntry[]>([])
-const analyticsSource = ref<'all' | 'custom'>('all')
+const analyticsSource = ref<'all' | 'official' | 'custom'>('official')
 const selectedAnalyticsPoolId = ref('')
 const newPoolName = ref('')
 const newPoolHeroNames = ref<string[]>([])
@@ -42,6 +42,10 @@ const selectedAnalyticsPool = computed(() =>
 const displayedHeroes = computed(() => {
   if (analyticsSource.value === 'all') {
     return allHeroes.value
+  }
+
+  if (analyticsSource.value === 'official') {
+    return allHeroes.value.filter((hero) => !hero.name.toLowerCase().includes('alt'))
   }
 
   if (!selectedAnalyticsPool.value) {
@@ -257,6 +261,7 @@ const handleDeletePool = (poolId: string) => {
             <span>Use hero set</span>
             <select v-model="analyticsSource">
               <option value="all">All Heroes</option>
+              <option value="official">Officially Released Characters</option>
               <option value="custom">Custom Pool</option>
             </select>
           </label>

@@ -25,7 +25,9 @@ const loadPools = () => {
 
   try {
     const parsed = JSON.parse(raw) as CustomHeroPool[]
-    pools.value = Array.isArray(parsed) ? parsed : []
+    pools.value = Array.isArray(parsed)
+      ? parsed.filter((pool) => pool.id !== 'pool-officially-released-characters')
+      : []
   } catch {
     pools.value = []
   }

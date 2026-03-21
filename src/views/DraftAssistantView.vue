@@ -66,7 +66,7 @@ const banquestRosterSize = ref<2 | 4 | 6 | 8>(4)
 
 const loading = ref(true)
 const allHeroes = ref<HeroEntry[]>([])
-const sourceMode = ref<'all' | 'custom'>('all')
+const sourceMode = ref<'all' | 'official' | 'custom'>('official')
 const selectedPoolId = ref('')
 
 const heroStatsDictionary = ref<HeroStatsDictionary>({})
@@ -91,6 +91,10 @@ const selectedPool = computed(() => pools.value.find((pool) => pool.id === selec
 const sourceHeroes = computed(() => {
   if (sourceMode.value === 'all') {
     return allHeroes.value
+  }
+
+  if (sourceMode.value === 'official') {
+    return allHeroes.value.filter((hero) => !hero.name.toLowerCase().includes('alt'))
   }
 
   if (!selectedPool.value) {
@@ -1139,6 +1143,7 @@ watch(
             <span>Source</span>
             <select v-model="sourceMode">
               <option value="all">All Heroes</option>
+              <option value="official">Officially Released Characters</option>
               <option value="custom">Custom Pool</option>
             </select>
           </label>
