@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
-import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/officialReleasedHeroes'
+import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/hero_pool_presets/officiallyReleasedHeroes'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { matchupThresholds } from '@/services/matchupThresholds'

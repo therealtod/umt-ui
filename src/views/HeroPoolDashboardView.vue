@@ -2,7 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
-import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/officialReleasedHeroes'
+import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/hero_pool_presets/officiallyReleasedHeroes'
+import { SPRING_OF_MYTHS_PRESET_SET } from '@/data/hero_pool_presets/springOfMyths'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { matchupThresholds } from '@/services/matchupThresholds'
@@ -22,10 +23,12 @@ type HeroPoolRow = {
 
 type PoolSortKey = 'name' | 'winRate' | 'pickRate' | 'gamesPlayed'
 type SortDirection = 'asc' | 'desc'
+type MatchupCategory = 'hard-losing' | 'losing' | 'balanced' | 'winning' | 'hard-winning'
+type ExplorerCategory = MatchupCategory | 'all-losing' | 'all-winning'
 
 const loading = ref(true)
 const allHeroes = ref<HeroEntry[]>([])
-const analyticsSource = ref<'all' | 'official' | 'custom'>('official')
+const analyticsSource = ref<'all' | 'official' | 'spring-of-myths' | 'custom'>('official')
 const selectedAnalyticsPoolId = ref('')
 const newPoolName = ref('')
 const newPoolHeroNames = ref<string[]>([])
@@ -47,6 +50,10 @@ const displayedHeroes = computed(() => {
 
   if (analyticsSource.value === 'official') {
     return allHeroes.value.filter((hero) => OFFICIALLY_RELEASED_HERO_NAME_SET.has(hero.name))
+  }
+
+  if (analyticsSource.value === 'spring-of-myths') {
+    return allHeroes.value.filter((hero) => SPRING_OF_MYTHS_PRESET_SET.has(hero.name))
   }
 
   if (!selectedAnalyticsPool.value) {
@@ -268,6 +275,108 @@ const getMatchupCellClass = (value: number | null | undefined) => {
   return 'matchup-cell-neutral'
 }
 
+const matchupCategories: Array<{ key: ExplorerCategory; label: string }> = [
+  { key: 'hard-losing', label: 'Hard-Losing' },
+  { key: 'losing', label: 'Losing' },
+  { key: 'all-losing', label: 'All Losing' },
+  { key: 'balanced', label: 'Balanced' },
+  { key: 'winning', label: 'Winning' },
+  { key: 'hard-winning', label: 'Hard-Winning' },
+  { key: 'all-winning', label: 'All Winning' },
+]
+
+const expandedCategoryByHero = ref<Record<string, ExplorerCategory | null>>({})
+
+const getMatchupCategory = (winRate: number): MatchupCategory => {
+  if (winRate <= matchupThresholds.hardLosingWinRateUpperBound) {
+    return 'hard-losing'
+  }
+
+  if (winRate < matchupThresholds.losingWinRateUpperBound) {
+    return 'losing'
+  }
+
+  if (winRate >= matchupThresholds.hardWinningWinRateLowerBound) {
+    return 'hard-winning'
+  }
+
+  if (winRate > matchupThresholds.winningWinRateLowerBound) {
+    return 'winning'
+  }
+
+  return 'balanced'
+}
+
+type HeroMatchupCategoryMap = Record<MatchupCategory, string[]>
+
+const heroMatchupCategoryBreakdown = computed<Record<string, HeroMatchupCategoryMap>>(() => {
+  const byHero: Record<string, HeroMatchupCategoryMap> = {}
+
+  for (const heroName of displayedHeroNames.value) {
+    const categories: HeroMatchupCategoryMap = {
+      'hard-losing': [],
+      losing: [],
+      balanced: [],
+      winning: [],
+      'hard-winning': [],
+    }
+
+    for (const opponent of displayedHeroNames.value) {
+      if (heroName === opponent) {
+        continue
+      }
+
+      const winRate = matchupMatrix.value[heroName]?.[opponent]
+      if (winRate == null) {
+        continue
+      }
+
+      const category = getMatchupCategory(winRate)
+      categories[category].push(opponent)
+    }
+
+    byHero[heroName] = categories
+  }
+
+  return byHero
+})
+
+const toggleHeroCategory = (heroName: string, category: ExplorerCategory) => {
+  const current = expandedCategoryByHero.value[heroName] ?? null
+  expandedCategoryByHero.value = {
+    ...expandedCategoryByHero.value,
+    [heroName]: current === category ? null : category,
+  }
+}
+
+const getExpandedCategoryLabel = (heroName: string): string => {
+  const category = expandedCategoryByHero.value[heroName]
+  if (!category) {
+    return ''
+  }
+  return matchupCategories.find((entry) => entry.key === category)?.label ?? ''
+}
+
+const getExpandedCategoryOpponents = (heroName: string): string[] => {
+  const category = expandedCategoryByHero.value[heroName]
+  if (!category) {
+    return []
+  }
+  if (category === 'all-losing') {
+    const hard = heroMatchupCategoryBreakdown.value[heroName]?.['hard-losing'] ?? []
+    const regular = heroMatchupCategoryBreakdown.value[heroName]?.losing ?? []
+    return [...hard, ...regular]
+  }
+
+  if (category === 'all-winning') {
+    const regular = heroMatchupCategoryBreakdown.value[heroName]?.winning ?? []
+    const hard = heroMatchupCategoryBreakdown.value[heroName]?.['hard-winning'] ?? []
+    return [...regular, ...hard]
+  }
+
+  return heroMatchupCategoryBreakdown.value[heroName]?.[category] ?? []
+}
+
 const addHeroToNewPool = (heroId: number) => {
   const hero = allHeroes.value.find((entry) => entry.id === heroId)
   if (!hero) {
@@ -318,6 +427,7 @@ const handleDeletePool = (poolId: string) => {
             <select v-model="analyticsSource">
               <option value="all">All Heroes</option>
               <option value="official">Officially Released Characters</option>
+              <option value="spring-of-myths">Spring Of Myths</option>
               <option value="custom">Custom Pool</option>
             </select>
           </label>
@@ -455,6 +565,42 @@ const handleDeletePool = (poolId: string) => {
         </div>
       </section>
 
+      <section class="section-wide" v-if="displayedHeroNames.length > 0">
+        <h2>Matchup Category Explorer</h2>
+        <p>Choose a category for each hero to list opponents in that matchup band.</p>
+        <div class="matchup-category-grid">
+          <article v-for="heroName in displayedHeroNames" :key="`category-explorer-${heroName}`">
+            <h3>{{ heroName }}</h3>
+            <div class="category-buttons">
+              <button
+                v-for="category in matchupCategories"
+                :key="`${heroName}-${category.key}`"
+                type="button"
+                :class="{ active: expandedCategoryByHero[heroName] === category.key }"
+                @click="toggleHeroCategory(heroName, category.key)"
+              >
+                {{ category.label }}
+              </button>
+            </div>
+
+            <div v-if="expandedCategoryByHero[heroName]" class="category-expanded">
+              <p>
+                {{ getExpandedCategoryLabel(heroName) }} opponents:
+              </p>
+              <ul v-if="getExpandedCategoryOpponents(heroName).length > 0">
+                <li
+                  v-for="opponent in getExpandedCategoryOpponents(heroName)"
+                  :key="`${heroName}-${expandedCategoryByHero[heroName]}-${opponent}`"
+                >
+                  {{ opponent }} ({{ formatWinRate(matchupMatrix[heroName]?.[opponent]) }})
+                </li>
+              </ul>
+              <p v-else>No heroes in this category.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="rankings" v-if="displayedHeroNames.length > 0">
         <div class="ranking-filter-bar">
           <button type="button" @click="rankingCoverageFilterEnabled = !rankingCoverageFilterEnabled">
@@ -582,6 +728,50 @@ section {
   border-radius: 8px;
   padding: 0.75rem;
   background: #0f172a;
+}
+
+.matchup-category-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.matchup-category-grid article {
+  border: 1px solid #2b3d57;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #0f172a;
+}
+
+.matchup-category-grid h3 {
+  margin-top: 0;
+}
+
+.category-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.category-buttons button {
+  margin-left: 0;
+  border: 1px solid #415a7e;
+  background: #122036;
+  color: #dbeafe;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+}
+
+.category-buttons button.active {
+  background: #1d4ed8;
+  border-color: #3b82f6;
+  color: #eff6ff;
+}
+
+.category-expanded {
+  margin-top: 0.6rem;
+  border-top: 1px solid #2b3d57;
+  padding-top: 0.6rem;
 }
 
 .section-wide {
