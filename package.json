@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vite preview",
+    "preview": "npm run build-only && wrangler dev",
     "test:unit": "vitest",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "deploy": "npm run build-only && wrangler deploy"
   },
   "dependencies": {
     "pinia": "^3.0.4",
@@ -19,6 +20,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.30.2",
     "@tsconfig/node24": "^24.0.4",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^24.10.9",
@@ -38,7 +40,8 @@
     "vite": "^7.3.1",
     "vite-plugin-vue-devtools": "^8.0.5",
     "vitest": "^4.0.17",
-    "vue-tsc": "^3.2.2"
+    "vue-tsc": "^3.2.2",
+    "wrangler": "^4.78.0"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
