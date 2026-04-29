@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
-      character: { type: String, required: true },
-      selected: { type: Boolean, default: false }
+      character: { type: string, required: true },
+      selected: { type: boolean, default: false }
     }>()
 </script>
 

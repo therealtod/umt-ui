@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
-import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/hero_pool_presets/officiallyReleasedHeroes'
+import { HERO_POOL_PRESETS } from '@/data/hero_pool_presets'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { buildMatchupWinRateMatrix, type MatchupWinRateMatrix } from '@/services/heroStatsUtils'
@@ -50,7 +50,8 @@ type RecommendationRow = {
 type BanRecommendationRow = {
   heroName: string
   averageWinRate: number
-  winningMatchups: number
+  averageCounterStrength: number
+  threateningMatches: number
 }
 
 type ForecastRecommendationRow = {
@@ -61,14 +62,20 @@ type ForecastRecommendationRow = {
 
 type MatchVictoryCondition = 'most-games' | 'all-heroes'
 
+type AnalyticsSource = 'all' | 'custom' | `preset:${string}`
+
+const defaultPresetId =
+  HERO_POOL_PRESETS.find((preset) => preset.id === 'officially-released-heroes')?.id ?? HERO_POOL_PRESETS[0]?.id
+const defaultAnalyticsSource: AnalyticsSource = defaultPresetId ? `preset:${defaultPresetId}` : 'all'
+
 const draftType = ref<'banquest' | 'blanket'>('banquest')
 const matchVictoryCondition = ref<MatchVictoryCondition>('most-games')
 const banquestRosterSize = ref<2 | 4 | 6 | 8>(4)
 
 const loading = ref(true)
 const allHeroes = ref<HeroEntry[]>([])
-const sourceMode = ref<'all' | 'official' | 'custom'>('official')
-const selectedPoolId = ref('')
+const analyticsSource = ref<AnalyticsSource>(defaultAnalyticsSource)
+const selectedAnalyticsPoolId = ref('')
 
 const heroStatsDictionary = ref<HeroStatsDictionary>({})
 const matchupMatrix = ref<MatchupWinRateMatrix>({})
@@ -87,22 +94,31 @@ onMounted(async () => {
   loading.value = false
 })
 
-const selectedPool = computed(() => pools.value.find((pool) => pool.id === selectedPoolId.value) ?? null)
+const selectedAnalyticsPool = computed(() =>
+  pools.value.find((pool) => pool.id === selectedAnalyticsPoolId.value) ?? null,
+)
+const selectedPreset = computed(() => {
+  if (!analyticsSource.value.startsWith('preset:')) {
+    return null
+  }
+  const presetId = analyticsSource.value.slice('preset:'.length)
+  return HERO_POOL_PRESETS.find((preset) => preset.id === presetId) ?? null
+})
 
 const sourceHeroes = computed(() => {
-  if (sourceMode.value === 'all') {
+  if (analyticsSource.value === 'all') {
     return allHeroes.value
   }
 
-  if (sourceMode.value === 'official') {
-    return allHeroes.value.filter((hero) => OFFICIALLY_RELEASED_HERO_NAME_SET.has(hero.name))
+  if (selectedPreset.value) {
+    return allHeroes.value.filter((hero) => selectedPreset.value?.heroNameSet.has(hero.name))
   }
 
-  if (!selectedPool.value) {
+  if (!selectedAnalyticsPool.value) {
     return []
   }
 
-  const allowedNames = new Set(selectedPool.value.heroNames)
+  const allowedNames = new Set(selectedAnalyticsPool.value.heroNames)
   return allHeroes.value.filter((hero) => allowedNames.has(hero.name))
 })
 
@@ -159,8 +175,8 @@ const filterSuggestionCandidates = (candidateHeroNames: string[]): string[] => {
 watch(
   pools,
   (nextPools) => {
-    if (sourceMode.value === 'custom' && !nextPools.some((pool) => pool.id === selectedPoolId.value)) {
-      selectedPoolId.value = nextPools[0]?.id ?? ''
+    if (analyticsSource.value === 'custom' && !nextPools.some((pool) => pool.id === selectedAnalyticsPoolId.value)) {
+      selectedAnalyticsPoolId.value = nextPools[0]?.id ?? ''
     }
   },
   { immediate: true },
@@ -1215,26 +1231,28 @@ watch(
       </section>
 
       <section>
-        <h2>Hero Selection Source</h2>
+        <h2>Analytics Source</h2>
         <div class="controls-row">
           <label>
-            <span>Source</span>
-            <select v-model="sourceMode">
+            <span>Use hero set</span>
+            <select v-model="analyticsSource">
               <option value="all">All Heroes</option>
-              <option value="official">Officially Released Characters</option>
+              <option v-for="preset in HERO_POOL_PRESETS" :key="preset.id" :value="`preset:${preset.id}`">
+                {{ preset.label }}
+              </option>
               <option value="custom">Custom Pool</option>
             </select>
           </label>
 
-          <label v-if="sourceMode === 'custom'">
+          <label v-if="analyticsSource === 'custom'">
             <span>Custom pool</span>
-            <select v-model="selectedPoolId">
+            <select v-model="selectedAnalyticsPoolId">
               <option disabled value="">Select a pool</option>
               <option v-for="pool in pools" :key="pool.id" :value="pool.id">{{ pool.name }}</option>
             </select>
           </label>
         </div>
-        <p v-if="sourceMode === 'custom' && pools.length === 0">No custom pools available yet.</p>
+        <p v-if="analyticsSource === 'custom' && pools.length === 0">No custom pools available yet.</p>
       </section>
 
       <template v-if="draftType === 'banquest'">
