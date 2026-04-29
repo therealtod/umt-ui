@@ -2,8 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import HeroSearchSelect from '@/components/HeroSearchSelect.vue'
 import { useHeroPools } from '@/composables/useHeroPools'
-import { OFFICIALLY_RELEASED_HERO_NAME_SET } from '@/data/hero_pool_presets/officiallyReleasedHeroes'
-import { SPRING_OF_MYTHS_PRESET_SET } from '@/data/hero_pool_presets/springOfMyths'
+import { HERO_POOL_PRESETS } from '@/data/hero_pool_presets'
 import type { HeroStatsDictionary } from '@/services/HeroStatsDataSource'
 import { heroStatsDataSource, heroStatsFilter } from '@/services/currentHeroStatsDataSource'
 import { matchupThresholds } from '@/services/matchupThresholds'
@@ -25,10 +24,15 @@ type PoolSortKey = 'name' | 'winRate' | 'pickRate' | 'gamesPlayed'
 type SortDirection = 'asc' | 'desc'
 type MatchupCategory = 'hard-losing' | 'losing' | 'balanced' | 'winning' | 'hard-winning'
 type ExplorerCategory = MatchupCategory | 'all-losing' | 'all-winning'
+type AnalyticsSource = 'all' | 'custom' | `preset:${string}`
+
+const defaultPresetId =
+  HERO_POOL_PRESETS.find((preset) => preset.id === 'officially-released-heroes')?.id ?? HERO_POOL_PRESETS[0]?.id
+const defaultAnalyticsSource: AnalyticsSource = defaultPresetId ? `preset:${defaultPresetId}` : 'all'
 
 const loading = ref(true)
 const allHeroes = ref<HeroEntry[]>([])
-const analyticsSource = ref<'all' | 'official' | 'spring-of-myths' | 'custom'>('official')
+const analyticsSource = ref<AnalyticsSource>(defaultAnalyticsSource)
 const selectedAnalyticsPoolId = ref('')
 const newPoolName = ref('')
 const newPoolHeroNames = ref<string[]>([])
@@ -42,18 +46,21 @@ const { pools, createPool, deletePool } = useHeroPools()
 const selectedAnalyticsPool = computed(() =>
   pools.value.find((pool) => pool.id === selectedAnalyticsPoolId.value) ?? null,
 )
+const selectedPreset = computed(() => {
+  if (!analyticsSource.value.startsWith('preset:')) {
+    return null
+  }
+  const presetId = analyticsSource.value.slice('preset:'.length)
+  return HERO_POOL_PRESETS.find((preset) => preset.id === presetId) ?? null
+})
 
 const displayedHeroes = computed(() => {
   if (analyticsSource.value === 'all') {
     return allHeroes.value
   }
 
-  if (analyticsSource.value === 'official') {
-    return allHeroes.value.filter((hero) => OFFICIALLY_RELEASED_HERO_NAME_SET.has(hero.name))
-  }
-
-  if (analyticsSource.value === 'spring-of-myths') {
-    return allHeroes.value.filter((hero) => SPRING_OF_MYTHS_PRESET_SET.has(hero.name))
+  if (selectedPreset.value) {
+    return allHeroes.value.filter((hero) => selectedPreset.value?.heroNameSet.has(hero.name))
   }
 
   if (!selectedAnalyticsPool.value) {
@@ -249,6 +256,74 @@ const mostWinningMatchups = computed(() => {
   )
 })
 
+const powerCoefficient1 = ref(1)
+const powerCoefficient2 = ref(1)
+const powerCoefficient3 = ref(1)
+const powerCoefficient4 = ref(1)
+
+const powerRankingRows = computed(() => {
+  return displayedHeroNames.value
+    .map((heroName) => {
+      let winningMatchups = 0
+      let losingMatchups = 0
+      let hardWinningMatchups = 0
+      let hardLosingMatchups = 0
+
+      for (const opponent of displayedHeroNames.value) {
+        if (heroName === opponent) {
+          continue
+        }
+
+        const winRate = matchupMatrix.value[heroName]?.[opponent]
+        if (winRate == null) {
+          continue
+        }
+
+        if (winRate > matchupThresholds.winningWinRateLowerBound) {
+          winningMatchups += 1
+        }
+
+        if (winRate < matchupThresholds.losingWinRateUpperBound) {
+          losingMatchups += 1
+        }
+
+        if (winRate >= matchupThresholds.hardWinningWinRateLowerBound) {
+          hardWinningMatchups += 1
+        }
+
+        if (winRate <= matchupThresholds.hardLosingWinRateUpperBound) {
+          hardLosingMatchups += 1
+        }
+      }
+
+      const powerScore =
+        powerCoefficient1.value * hardWinningMatchups +
+        powerCoefficient2.value * winningMatchups -
+        powerCoefficient3.value * losingMatchups -
+        powerCoefficient4.value * hardLosingMatchups
+
+      return {
+        heroName,
+        powerScore,
+        winningMatchups,
+        losingMatchups,
+        hardWinningMatchups,
+        hardLosingMatchups,
+        gamesPlayed: heroStatsDictionary.value[heroName]?.gamesPlayed ?? 0,
+      }
+    })
+    .sort((a, b) => {
+      return (
+        b.powerScore - a.powerScore ||
+        b.winningMatchups - a.winningMatchups ||
+        a.losingMatchups - b.losingMatchups ||
+        b.gamesPlayed - a.gamesPlayed
+      )
+    })
+})
+
+const formatPowerScore = (value: number) => value.toFixed(2)
+
 const formatWinRate = (value: number | null | undefined) => (value == null ? '--' : `${value.toFixed(1)}%`)
 
 const getMatchupCellClass = (value: number | null | undefined) => {
@@ -426,8 +501,9 @@ const handleDeletePool = (poolId: string) => {
             <span>Use hero set</span>
             <select v-model="analyticsSource">
               <option value="all">All Heroes</option>
-              <option value="official">Officially Released Characters</option>
-              <option value="spring-of-myths">Spring Of Myths</option>
+              <option v-for="preset in HERO_POOL_PRESETS" :key="preset.id" :value="`preset:${preset.id}`">
+                {{ preset.label }}
+              </option>
               <option value="custom">Custom Pool</option>
             </select>
           </label>
@@ -646,6 +722,39 @@ const handleDeletePool = (poolId: string) => {
             </li>
           </ol>
         </article>
+      </section>
+
+      <section class="section-wide" v-if="displayedHeroNames.length > 0">
+        <h2>Power Ranking</h2>
+        <p>
+          Score = coefficient1 * #hard-winning + coefficient2 * #all-winning - coefficient3 * #all-losing -
+          coefficient4 * #hard-losing.
+        </p>
+        <div class="controls-row">
+          <label>
+            <span>Coefficient 1 (hard-winning)</span>
+            <input v-model.number="powerCoefficient1" type="number" step="0.1" />
+          </label>
+          <label>
+            <span>Coefficient 2 (all-winning)</span>
+            <input v-model.number="powerCoefficient2" type="number" step="0.1" />
+          </label>
+          <label>
+            <span>Coefficient 3 (all-losing)</span>
+            <input v-model.number="powerCoefficient3" type="number" step="0.1" />
+          </label>
+          <label>
+            <span>Coefficient 4 (hard-losing)</span>
+            <input v-model.number="powerCoefficient4" type="number" step="0.1" />
+          </label>
+        </div>
+        <ol>
+          <li v-for="entry in powerRankingRows" :key="`power-${entry.heroName}`">
+            {{ entry.heroName }} (score: {{ formatPowerScore(entry.powerScore) }}, {{ entry.hardWinningMatchups }}
+            hard-winning, {{ entry.winningMatchups }} all-winning, {{ entry.losingMatchups }} all-losing,
+            {{ entry.hardLosingMatchups }} hard-losing, {{ entry.gamesPlayed }} games played)
+          </li>
+        </ol>
       </section>
 
       <p v-if="displayedHeroNames.length === 0">No heroes available for the selected source.</p>
