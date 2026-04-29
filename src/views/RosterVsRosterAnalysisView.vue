@@ -127,6 +127,17 @@ const removeHeroFromRoster = (roster: 'one' | 'two', heroId: number) => {
   rosterTwoIds.value = rosterTwoIds.value.filter((id) => id !== heroId)
 }
 
+const toggleBan = (roster: 'one' | 'two', heroName: string, checked: boolean) => {
+  const target = roster === 'one' ? selectedBanFromRosterOne : selectedBanFromRosterTwo
+  if (checked) {
+    if (target.value.length < banCount.value && !target.value.includes(heroName)) {
+      target.value = [...target.value, heroName]
+    }
+  } else {
+    target.value = target.value.filter((name) => name !== heroName)
+  }
+}
+
 const getMatchupWinRate = (hero1: string, hero2: string) => matchupMatrix.value[hero1]?.[hero2] ?? null
 
 const summarizeRoster = (roster: HeroEntry[]) => {
@@ -166,9 +177,13 @@ const comparison = computed(() => ({
   pickRateDiff: Number((rosterOneSummary.value.averagePickRate - rosterTwoSummary.value.averagePickRate).toFixed(1)),
 }))
 
-const getMostThreateningHero = (opponentRoster: HeroEntry[], targetRoster: HeroEntry[]): ThreatSummary | null => {
+const getTopThreateningHeroes = (
+  opponentRoster: HeroEntry[],
+  targetRoster: HeroEntry[],
+  count: number,
+): ThreatSummary[] => {
   if (opponentRoster.length === 0 || targetRoster.length === 0) {
-    return null
+    return []
   }
 
   const threats = opponentRoster.map((opponentHero) => {
@@ -186,61 +201,83 @@ const getMostThreateningHero = (opponentRoster: HeroEntry[], targetRoster: HeroE
     }
   })
 
-  return (
-    threats.sort((a, b) => b.averageWinRate - a.averageWinRate || b.winningMatchups - a.winningMatchups)[0] ?? null
-  )
+  return threats
+    .sort((a, b) => b.averageWinRate - a.averageWinRate || b.winningMatchups - a.winningMatchups)
+    .slice(0, count)
 }
 
-const mostThreateningToRosterOne = computed(() => getMostThreateningHero(rosterTwo.value, rosterOne.value))
-const mostThreateningToRosterTwo = computed(() => getMostThreateningHero(rosterOne.value, rosterTwo.value))
+const mostThreateningToRosterOne = computed(() =>
+  getTopThreateningHeroes(rosterTwo.value, rosterOne.value, banCount.value),
+)
+const mostThreateningToRosterTwo = computed(() =>
+  getTopThreateningHeroes(rosterOne.value, rosterTwo.value, banCount.value),
+)
 
-const suggestedBanByRosterOne = computed(() => mostThreateningToRosterOne.value?.heroName ?? null)
-const suggestedBanByRosterTwo = computed(() => mostThreateningToRosterTwo.value?.heroName ?? null)
+const suggestedBansByRosterOne = computed(() => mostThreateningToRosterOne.value.map((t) => t.heroName))
+const suggestedBansByRosterTwo = computed(() => mostThreateningToRosterTwo.value.map((t) => t.heroName))
 
-const selectedBanFromRosterTwo = ref('')
-const selectedBanFromRosterOne = ref('')
+const selectedBanFromRosterTwo = ref<string[]>([])
+const selectedBanFromRosterOne = ref<string[]>([])
+
+const banCount = ref(1)
+const maxBanCount = computed(() => Math.min(rosterOne.value.length, rosterTwo.value.length))
 
 const rosterTwoBanOptions = computed(() => rosterTwo.value.map((hero) => hero.name))
 const rosterOneBanOptions = computed(() => rosterOne.value.map((hero) => hero.name))
 
 watch(
-  [rosterTwoBanOptions, suggestedBanByRosterOne],
-  ([banOptions, suggestedBan]) => {
-    if (selectedBanFromRosterTwo.value && banOptions.includes(selectedBanFromRosterTwo.value)) {
-      return
+  [rosterTwoBanOptions, suggestedBansByRosterOne],
+  ([banOptions, suggestedBans]) => {
+    const newBans: string[] = []
+    for (const suggestedBan of suggestedBans) {
+      if (banOptions.includes(suggestedBan) && newBans.length < banCount.value && !newBans.includes(suggestedBan)) {
+        newBans.push(suggestedBan)
+      }
     }
-
-    selectedBanFromRosterTwo.value = suggestedBan && banOptions.includes(suggestedBan) ? suggestedBan : ''
+    if (newBans.length > 0) {
+      selectedBanFromRosterTwo.value = newBans
+    }
   },
   { immediate: true },
 )
 
 watch(
-  [rosterOneBanOptions, suggestedBanByRosterTwo],
-  ([banOptions, suggestedBan]) => {
-    if (selectedBanFromRosterOne.value && banOptions.includes(selectedBanFromRosterOne.value)) {
-      return
+  [rosterOneBanOptions, suggestedBansByRosterTwo],
+  ([banOptions, suggestedBans]) => {
+    const newBans: string[] = []
+    for (const suggestedBan of suggestedBans) {
+      if (banOptions.includes(suggestedBan) && newBans.length < banCount.value && !newBans.includes(suggestedBan)) {
+        newBans.push(suggestedBan)
+      }
     }
-
-    selectedBanFromRosterOne.value = suggestedBan && banOptions.includes(suggestedBan) ? suggestedBan : ''
+    if (newBans.length > 0) {
+      selectedBanFromRosterOne.value = newBans
+    }
   },
   { immediate: true },
 )
 
+watch(banCount, () => {
+  selectedBanFromRosterOne.value = selectedBanFromRosterOne.value.slice(0, banCount.value)
+  selectedBanFromRosterTwo.value = selectedBanFromRosterTwo.value.slice(0, banCount.value)
+})
+
 const rosterOneAfterBans = computed(() => {
-  if (!selectedBanFromRosterOne.value) {
+  if (selectedBanFromRosterOne.value.length === 0) {
     return rosterOne.value
   }
 
-  return rosterOne.value.filter((hero) => hero.name !== selectedBanFromRosterOne.value)
+  const bannedSet = new Set(selectedBanFromRosterOne.value)
+  return rosterOne.value.filter((hero) => !bannedSet.has(hero.name))
 })
 
 const rosterTwoAfterBans = computed(() => {
-  if (!selectedBanFromRosterTwo.value) {
+  if (selectedBanFromRosterTwo.value.length === 0) {
     return rosterTwo.value
   }
 
-  return rosterTwo.value.filter((hero) => hero.name !== selectedBanFromRosterTwo.value)
+  const bannedSet = new Set(selectedBanFromRosterTwo.value)
+  return rosterTwo.value.filter((hero) => !bannedSet.has(hero.name))
 })
 
 const rosterOneSummaryAfterBans = computed(() => summarizeRoster(rosterOneAfterBans.value))
@@ -256,10 +293,10 @@ const comparisonAfterBans = computed(() => ({
 }))
 
 const mostThreateningToRosterOneAfterBans = computed(() =>
-  getMostThreateningHero(rosterTwoAfterBans.value, rosterOneAfterBans.value),
+  getTopThreateningHeroes(rosterTwoAfterBans.value, rosterOneAfterBans.value, banCount.value),
 )
 const mostThreateningToRosterTwoAfterBans = computed(() =>
-  getMostThreateningHero(rosterOneAfterBans.value, rosterTwoAfterBans.value),
+  getTopThreateningHeroes(rosterOneAfterBans.value, rosterTwoAfterBans.value, banCount.value),
 )
 
 const formatWinRate = (value: number | null) => (value == null ? '--' : `${value.toFixed(1)}%`)
@@ -365,49 +402,56 @@ const getMatchupCellClass = (value: number | null) => {
       </section>
 
       <section>
-        <h2>Ban Recommendations</h2>
-        <p v-if="!suggestedBanByRosterOne || !suggestedBanByRosterTwo">
-          Select heroes in both rosters to get ban recommendations.
-        </p>
-        <div v-else class="ban-grid">
+        <h2>Bans</h2>
+        <div class="ban-controls">
+          <label class="ban-count-control">
+            <span>Number of bans per side:</span>
+            <select v-model="banCount">
+              <option v-for="n in Math.max(0, maxBanCount)" :key="`ban-count-${n}`" :value="n">
+                {{ n }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <div v-if="banCount > 0" class="ban-grid">
           <article>
-            <h3>Roster 1 Suggested Ban</h3>
-            <p>Ban from Roster 2: {{ suggestedBanByRosterOne }}</p>
-            <p>
-              Reason:
-              {{ mostThreateningToRosterOne ? mostThreateningToRosterOne.averageWinRate.toFixed(1) : '--' }}%
-              average win rate into Roster 1
-            </p>
-            <label class="ban-control">
-              <span>Selected ban from Roster 2</span>
-              <select v-model="selectedBanFromRosterTwo">
-                <option value="">No ban selected</option>
-                <option v-for="heroName in rosterTwoBanOptions" :key="`ban-r1-${heroName}`" :value="heroName">
-                  {{ heroName }}
-                </option>
-              </select>
-            </label>
+            <h3>Roster 1 Bans (from Roster 2)</h3>
+            <p v-if="rosterTwoBanOptions.length === 0">No heroes in Roster 2 to ban.</p>
+            <ul v-else class="ban-check-list">
+              <li v-for="heroName in rosterTwoBanOptions" :key="`ban-r1-${heroName}`">
+                <label>
+                  <input
+                    type="checkbox"
+                    :value="heroName"
+                    :checked="selectedBanFromRosterTwo.includes(heroName)"
+                    @change="(e) => toggleBan('two', heroName, (e.target as HTMLInputElement).checked)"
+                  />
+                  <span>{{ heroName }}</span>
+                </label>
+              </li>
+            </ul>
           </article>
 
           <article>
-            <h3>Roster 2 Suggested Ban</h3>
-            <p>Ban from Roster 1: {{ suggestedBanByRosterTwo }}</p>
-            <p>
-              Reason:
-              {{ mostThreateningToRosterTwo ? mostThreateningToRosterTwo.averageWinRate.toFixed(1) : '--' }}%
-              average win rate into Roster 2
-            </p>
-            <label class="ban-control">
-              <span>Selected ban from Roster 1</span>
-              <select v-model="selectedBanFromRosterOne">
-                <option value="">No ban selected</option>
-                <option v-for="heroName in rosterOneBanOptions" :key="`ban-r2-${heroName}`" :value="heroName">
-                  {{ heroName }}
-                </option>
-              </select>
-            </label>
+            <h3>Roster 2 Bans (from Roster 1)</h3>
+            <p v-if="rosterOneBanOptions.length === 0">No heroes in Roster 1 to ban.</p>
+            <ul v-else class="ban-check-list">
+              <li v-for="heroName in rosterOneBanOptions" :key="`ban-r2-${heroName}`">
+                <label>
+                  <input
+                    type="checkbox"
+                    :value="heroName"
+                    :checked="selectedBanFromRosterOne.includes(heroName)"
+                    @change="(e) => toggleBan('one', heroName, (e.target as HTMLInputElement).checked)"
+                  />
+                  <span>{{ heroName }}</span>
+                </label>
+              </li>
+            </ul>
           </article>
         </div>
+        <p v-else>Set a ban count to enable bans.</p>
       </section>
 
       <section>
@@ -464,23 +508,29 @@ const getMatchupCellClass = (value: number | null) => {
       </section>
 
       <section>
-        <h2>Most Threatening Opponent Heroes (Before Bans)</h2>
-        <p v-if="!mostThreateningToRosterOne || !mostThreateningToRosterTwo">
+        <h2>Top {{ banCount }} Most Threatening Opponent Heroes (Before Bans)</h2>
+        <p v-if="mostThreateningToRosterOne.length === 0 || mostThreateningToRosterTwo.length === 0">
           Select heroes in both rosters to identify the biggest threats.
         </p>
         <div v-else class="threat-grid">
           <article>
-            <h3>Threat to Roster 1</h3>
-            <p>{{ mostThreateningToRosterOne.heroName }}</p>
-            <p>Average win rate into Roster 1: {{ mostThreateningToRosterOne.averageWinRate.toFixed(1) }}%</p>
-            <p>Winning matchups into Roster 1: {{ mostThreateningToRosterOne.winningMatchups }}</p>
+            <h3>Threats to Roster 1</h3>
+            <ul class="threat-list">
+              <li v-for="(threat, index) in mostThreateningToRosterOne" :key="`threat-r1-${index}`">
+                <strong>#{{ index + 1 }} {{ threat.heroName }}</strong>
+                - {{ threat.averageWinRate.toFixed(1) }}% avg WR ({{ threat.winningMatchups }} winning matchups)
+              </li>
+            </ul>
           </article>
 
           <article>
-            <h3>Threat to Roster 2</h3>
-            <p>{{ mostThreateningToRosterTwo.heroName }}</p>
-            <p>Average win rate into Roster 2: {{ mostThreateningToRosterTwo.averageWinRate.toFixed(1) }}%</p>
-            <p>Winning matchups into Roster 2: {{ mostThreateningToRosterTwo.winningMatchups }}</p>
+            <h3>Threats to Roster 2</h3>
+            <ul class="threat-list">
+              <li v-for="(threat, index) in mostThreateningToRosterTwo" :key="`threat-r2-${index}`">
+                <strong>#{{ index + 1 }} {{ threat.heroName }}</strong>
+                - {{ threat.averageWinRate.toFixed(1) }}% avg WR ({{ threat.winningMatchups }} winning matchups)
+              </li>
+            </ul>
           </article>
         </div>
       </section>
@@ -489,8 +539,9 @@ const getMatchupCellClass = (value: number | null) => {
         <h2>Comparison Summary (After Selected Bans)</h2>
         <p>
           Current bans:
-          Roster 1 bans <strong>{{ selectedBanFromRosterTwo || 'none' }}</strong>, Roster 2 bans
-          <strong>{{ selectedBanFromRosterOne || 'none' }}</strong>.
+          Roster 1 bans <strong>{{ selectedBanFromRosterTwo.length > 0 ? selectedBanFromRosterTwo.join(', ') : 'none' }}</strong>,
+          Roster 2 bans
+          <strong>{{ selectedBanFromRosterOne.length > 0 ? selectedBanFromRosterOne.join(', ') : 'none' }}</strong>.
         </p>
         <div class="summary-grid">
           <article>
@@ -544,27 +595,29 @@ const getMatchupCellClass = (value: number | null) => {
       </section>
 
       <section>
-        <h2>Most Threatening Opponent Heroes (After Selected Bans)</h2>
-        <p v-if="!mostThreateningToRosterOneAfterBans || !mostThreateningToRosterTwoAfterBans">
+        <h2>Top {{ banCount }} Most Threatening Opponent Heroes (After Selected Bans)</h2>
+        <p v-if="mostThreateningToRosterOneAfterBans.length === 0 || mostThreateningToRosterTwoAfterBans.length === 0">
           Post-ban threats are unavailable with the current roster sizes.
         </p>
         <div v-else class="threat-grid">
           <article>
-            <h3>Threat to Roster 1</h3>
-            <p>{{ mostThreateningToRosterOneAfterBans.heroName }}</p>
-            <p>
-              Average win rate into Roster 1: {{ mostThreateningToRosterOneAfterBans.averageWinRate.toFixed(1) }}%
-            </p>
-            <p>Winning matchups into Roster 1: {{ mostThreateningToRosterOneAfterBans.winningMatchups }}</p>
+            <h3>Threats to Roster 1</h3>
+            <ul class="threat-list">
+              <li v-for="(threat, index) in mostThreateningToRosterOneAfterBans" :key="`post-threat-r1-${index}`">
+                <strong>#{{ index + 1 }} {{ threat.heroName }}</strong>
+                - {{ threat.averageWinRate.toFixed(1) }}% avg WR ({{ threat.winningMatchups }} winning matchups)
+              </li>
+            </ul>
           </article>
 
           <article>
-            <h3>Threat to Roster 2</h3>
-            <p>{{ mostThreateningToRosterTwoAfterBans.heroName }}</p>
-            <p>
-              Average win rate into Roster 2: {{ mostThreateningToRosterTwoAfterBans.averageWinRate.toFixed(1) }}%
-            </p>
-            <p>Winning matchups into Roster 2: {{ mostThreateningToRosterTwoAfterBans.winningMatchups }}</p>
+            <h3>Threats to Roster 2</h3>
+            <ul class="threat-list">
+              <li v-for="(threat, index) in mostThreateningToRosterTwoAfterBans" :key="`post-threat-r2-${index}`">
+                <strong>#{{ index + 1 }} {{ threat.heroName }}</strong>
+                - {{ threat.averageWinRate.toFixed(1) }}% avg WR ({{ threat.winningMatchups }} winning matchups)
+              </li>
+            </ul>
           </article>
         </div>
       </section>
@@ -692,6 +745,42 @@ button {
   display: grid;
   gap: 0.25rem;
   margin-top: 0.6rem;
+}
+
+.ban-controls {
+  margin-bottom: 1rem;
+}
+
+.ban-count-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ban-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.ban-check-list li label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.threat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.threat-list li {
+  margin-bottom: 0.5rem;
 }
 
 @media (max-width: 768px) {

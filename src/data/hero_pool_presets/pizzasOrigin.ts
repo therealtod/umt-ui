@@ -19,6 +19,7 @@ export const PIZZAS_ORIGIN_POOL = [
   'Donatello',
   'Dr. Jill Trent',
   'Dr. Sattler',
+  'Dracula',
   'Geralt of Rivia',
   'Ghost Rider',
   'Hamlet',
