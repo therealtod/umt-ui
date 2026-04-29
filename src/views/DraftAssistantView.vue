@@ -471,10 +471,11 @@ const buildOpponentBanRecommendations = (
       return {
         heroName: opponentHeroName,
         averageWinRate,
-        winningMatchups: winRates.filter((value) => value > matchupThresholds.winningWinRateLowerBound).length,
+        averageCounterStrength: averageWinRate,
+        threateningMatches: winRates.filter((value) => value > matchupThresholds.winningWinRateLowerBound).length,
       }
     })
-    .sort((a, b) => b.averageWinRate - a.averageWinRate || b.winningMatchups - a.winningMatchups)
+    .sort((a, b) => b.averageWinRate - a.averageWinRate || b.threateningMatches - a.threateningMatches)
 }
 
 const banquestBanRecommendationsA = computed<BanRecommendationRow[]>(() =>
@@ -1333,7 +1334,7 @@ watch(
                 <ul>
                   <li v-for="entry in banquestBanRecommendationsA.slice(0, 8)" :key="`ban-a-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% avg into A,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1350,7 +1351,7 @@ watch(
                 <ul>
                   <li v-for="entry in banquestBanRecommendationsB.slice(0, 8)" :key="`ban-b-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% avg into B,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1383,7 +1384,7 @@ watch(
                 <ul>
                   <li v-for="entry in banquestSelfBanRecommendationsA.slice(0, 8)" :key="`self-ban-a-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% average win rate,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1400,7 +1401,7 @@ watch(
                 <ul>
                   <li v-for="entry in banquestSelfBanRecommendationsB.slice(0, 8)" :key="`self-ban-b-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% average win rate,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1716,7 +1717,7 @@ watch(
                 <ul>
                   <li v-for="entry in blanketBanRecommendationsA.slice(0, 8)" :key="`bbr-a-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% avg into A,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1733,7 +1734,7 @@ watch(
                 <ul>
                   <li v-for="entry in blanketBanRecommendationsB.slice(0, 8)" :key="`bbr-b-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% avg into B,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1765,7 +1766,7 @@ watch(
                 <ul>
                   <li v-for="entry in blanketSelfBanRecommendationsA.slice(0, 8)" :key="`bsr-a-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% avg,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect
@@ -1782,7 +1783,7 @@ watch(
                 <ul>
                   <li v-for="entry in blanketSelfBanRecommendationsB.slice(0, 8)" :key="`bsr-b-${entry.heroName}`">
                     <strong>{{ entry.heroName }}</strong>: {{ entry.averageWinRate.toFixed(1) }}% avg,
-                    {{ entry.winningMatchups }} winning matchup{{ entry.winningMatchups === 1 ? '' : 's' }}
+                    {{ entry.threateningMatches }} winning matchup{{ entry.threateningMatches === 1 ? '' : 's' }}
                   </li>
                 </ul>
                 <HeroSearchSelect

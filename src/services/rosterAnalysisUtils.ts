@@ -40,7 +40,8 @@ export type ThreatSummary = {
 export type WeakLinkSummary = {
   heroName: string
   averageWinRate: number
-  winningMatchups: number
+  averageCounterStrength: number
+  threateningMatches: number
 }
 
 export const computeCounterThreshold = (rosterSize: number) => Math.floor(rosterSize / 2) + 1
@@ -292,8 +293,9 @@ export const buildWeakLinkRows = (
       return {
         heroName,
         averageWinRate,
-        winningMatchups: winRates.filter((value) => value > matchupThresholds.winningWinRateLowerBound).length,
+        averageCounterStrength: averageWinRate,
+        threateningMatches: winRates.filter((value) => value > matchupThresholds.winningWinRateLowerBound).length,
       }
     })
-    .sort((a, b) => a.averageWinRate - b.averageWinRate || a.winningMatchups - b.winningMatchups)
+    .sort((a, b) => a.averageWinRate - b.averageWinRate || a.threateningMatches - b.threateningMatches)
 }
